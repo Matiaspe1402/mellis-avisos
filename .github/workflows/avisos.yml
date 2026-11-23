@@ -1,0 +1,33 @@
+name: Avisos de alimentación
+
+# Cada 5 minutos pide a Mellis que revise las alarmas vencidas y mande los avisos.
+# GitHub puede atrasar las ejecuciones programadas unos minutos.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  avisos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Revisar alarmas vencidas
+        run: curl -fsS --retry 3 --retry-delay 5 --max-time 40 https://mellis-bebes.vercel.app/api/tick
+
+      # GitHub pausa los programadores de repositorios públicos sin actividad por 60 días.
+      # Si el último movimiento tiene más de 30 días, se agrega uno vacío.
+      - uses: actions/checkout@v4
+      - name: Mantener activo el programador
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $((now - last)) -gt 2592000 ]; then
+            git config user.name "mellis-avisos"
+            git config user.email "actions@users.noreply.github.com"
+            git commit --allow-empty -m "Mantener activo el programador"
+            git push
+          fi
